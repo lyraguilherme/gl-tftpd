@@ -8,16 +8,14 @@ uploads. Reads are on by default; writes are opt-in.
 
 ## Features
 
-- **RFC 1350 TFTP** in `octet` (binary) mode — RRQ (download) and WRQ (upload).
-- **Sandboxed root.** All file access goes through `os.Root`, so requests cannot
-  escape the served directory via `..` or symlinks.
-- **Writes off by default.** Enable uploads explicitly with `-writable`.
-- **Upload size cap** (`-max-write-bytes`) to limit disk usage.
+- **RFC 1350 TFTP** in `octet` (binary) mode. RRQ (download) and WRQ (upload).
+- **Writes off by default.** Enable uploads explicitly with `-writable` parameter.
 - **Per-session transfer IDs**, retransmission on timeout, and rejection of
   packets from an unexpected source (TID) — the basic TFTP correctness bits.
-- No third-party dependencies; a single static binary.
+- **Upload size cap** (`-max-write-bytes`) to limit disk usage.
+- No third-party dependencies. No installation needed. Single static binary.
 
-## Install
+## Usage
 
 ### Download a prebuilt binary (recommended)
 
