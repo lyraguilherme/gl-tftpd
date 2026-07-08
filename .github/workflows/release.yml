@@ -1,47 +1,60 @@
 name: Release
 
 # Two ways to cut a release:
-#   1. Push a version tag:   git tag v0.1.0 && git push origin v0.1.0
-#   2. Actions tab -> Release -> "Run workflow", enter a version (e.g. v0.1.0);
-#      the workflow creates and pushes the tag for you.
+#   1. Push a version tag:   git tag v0.2.0 && git push origin v0.2.0
+#   2. Actions tab -> Release -> "Run workflow", enter a version (e.g. v0.2.0);
+#      the workflow tests and builds first, then creates the tag and release.
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag to release (e.g. v0.1.0)'
+        description: 'Version tag to release (e.g. v0.2.0)'
         required: true
 
 permissions:
   contents: write
 
+# Don't let two releases run at once.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Resolve version
+      - name: Resolve and validate version
         id: v
         run: |
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then
-            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            version="${{ inputs.version }}"
           else
-            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            version="${GITHUB_REF_NAME}"
           fi
+          case "$version" in
+            v[0-9]*) ;;
+            *) echo "::error::version must look like vX.Y.Z (got '$version')"; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Create and push tag (manual runs only)
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          git tag "${{ steps.v.outputs.version }}"
-          git push origin "${{ steps.v.outputs.version }}"
-
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
 
+      # Gate the release on the same checks CI runs, so tags never ship
+      # untested binaries.
+      - name: Vet and test
+        run: |
+          go vet ./...
+          go test -race ./...
+
       - name: Build binaries
+        env:
+          CGO_ENABLED: 0 # fully static, portable binaries
         run: |
           mkdir -p dist
           for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
@@ -51,6 +64,17 @@ jobs:
             GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags="-s -w" \
               -o "dist/gl-tftpd-${os}-${arch}${ext}" .
           done
+
+      - name: Generate checksums
+        run: cd dist && sha256sum gl-tftpd-* > checksums.txt
+
+      # Only after tests + build succeed do we create the tag (manual runs),
+      # so a failure never leaves a dangling tag with no release.
+      - name: Create and push tag (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git tag "${{ steps.v.outputs.version }}"
+          git push origin "${{ steps.v.outputs.version }}"
 
       - name: Create GitHub release
         env:
