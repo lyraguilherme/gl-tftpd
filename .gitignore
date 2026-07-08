@@ -1,0 +1,13 @@
+# Compiled binary (matches the module's last path element)
+/gl-tftpd
+/dist/
+
+# Go / OS artifacts
+*.exe
+*.test
+*.out
+coverage.*
+.DS_Store
+
+# Legacy binary name
+/tftpd
