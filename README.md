@@ -19,11 +19,31 @@ uploads. Reads are on by default; writes are opt-in.
 
 ## Install
 
+### Download a prebuilt binary (recommended)
+
+Grab the build for your OS/arch from the
+[latest release](https://github.com/lyraguilherme/gl-tftpd/releases/latest) —
+it's a single self-contained executable, no runtime needed.
+
 ```sh
-go install github.com/lyraguilherme/gl-tftpd@latest
+# Linux x86-64 (adjust the suffix for your platform)
+curl -Lo gl-tftpd https://github.com/lyraguilherme/gl-tftpd/releases/latest/download/gl-tftpd-linux-amd64
+chmod +x gl-tftpd
+./gl-tftpd -root /srv/tftp
 ```
 
-Or build from source:
+Available builds: `linux-amd64`, `linux-arm64`, `darwin-amd64`, `darwin-arm64`,
+`windows-amd64.exe`.
+
+### Build it yourself
+
+If you have the Go toolchain:
+
+```sh
+go install github.com/lyraguilherme/gl-tftpd@latest   # installs to $GOBIN
+```
+
+or from a checkout:
 
 ```sh
 git clone https://github.com/lyraguilherme/gl-tftpd
@@ -82,4 +102,4 @@ go build .
 
 ## License
 
-No license yet — add one before publishing if you want others to reuse the code.
+[MIT](LICENSE) © 2026 Guilherme Lyra
