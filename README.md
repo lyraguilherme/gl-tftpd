@@ -81,6 +81,7 @@ tftp 127.0.0.1 6969 -c put local.bin uploaded.bin   # requires -writable
 | `-root` | `.` | Directory to serve. |
 | `-writable` | `false` | Allow clients to upload files (WRQ). |
 | `-max-write-bytes` | `1073741824` | Max bytes accepted per upload (0 = unlimited). |
+| `-max-sessions` | `256` | Max concurrent transfers; excess requests are dropped. |
 
 ## Security notes
 
@@ -89,6 +90,23 @@ is public to anyone who can reach the port, and traffic is plaintext. Run it onl
 on trusted networks, bind it to a specific interface, and keep `-writable` off
 unless you need uploads. The server sandboxes file access to `-root`, but it does
 not protect against exposure of whatever you place in that directory.
+
+### Known limitations
+
+- **UDP reflection/amplification.** Because requests are unauthenticated UDP, a
+  spoofed source address can make the server send data to a third party. This is
+  mitigated — the first data block is sent only once, so the server won't
+  repeatedly amplify traffic toward a forged source — but not eliminated (any
+  single reflected block is inherent to stateless UDP). Don't expose it directly
+  to the public internet.
+- **Concurrency is capped, not rate-limited.** Concurrent transfers are bounded
+  by `-max-sessions` (default 256); excess requests are dropped so a flood can't
+  exhaust goroutines or file descriptors. There is no per-source rate limiting,
+  so a single host can still churn through that budget — front it with a firewall
+  on untrusted networks.
+- **`octet` mode only.** `netascii` and `mail` transfer modes are not supported.
+- **No RFC 2347 option negotiation** (`blksize`, `tsize`, `timeout`), so
+  transfers always use 512-byte blocks.
 
 ## Development
 
