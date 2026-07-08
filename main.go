@@ -38,6 +38,11 @@ const (
 	blockSize = 512
 	timeout   = 3 * time.Second
 	maxRetry  = 5
+	// firstBlockRetries caps retransmissions of the first DATA block. A spoofed
+	// (reflection) client never ACKs, so sending the first block only once stops
+	// the server from amplifying traffic toward a forged source address. A real
+	// client that loses the first block just retransmits its request to restart.
+	firstBlockRetries = 1
 )
 
 var (
@@ -58,6 +63,7 @@ func main() {
 	flag.StringVar(&rootDir, "root", ".", "root directory to serve")
 	flag.BoolVar(&allowWrite, "writable", false, "allow clients to upload files (WRQ)")
 	flag.Int64Var(&maxWriteBytes, "max-write-bytes", 1<<30, "maximum bytes accepted per upload (0 = unlimited)")
+	maxSessions := flag.Int("max-sessions", 256, "maximum concurrent transfers (excess requests are dropped)")
 	flag.Parse()
 
 	// Ensure the root directory is an absolute path
@@ -89,6 +95,10 @@ func main() {
 
 	log.Printf("TFTP serving %s on %s (writable=%v)", rootDir, *addr, allowWrite)
 
+	// Cap concurrent transfers so a packet flood can't exhaust goroutines or file
+	// descriptors — each session opens its own UDP socket.
+	sem := make(chan struct{}, *maxSessions)
+
 	// Read incoming packets in a loop and handle each request in its own goroutine
 	buf := make([]byte, 1024)
 	for {
@@ -99,7 +109,16 @@ func main() {
 		}
 		pkt := make([]byte, n)
 		copy(pkt, buf[:n])
-		go handle(client, pkt)
+		select {
+		case sem <- struct{}{}:
+			go func() {
+				defer func() { <-sem }()
+				handle(client, pkt)
+			}()
+		default:
+			// At capacity: drop silently. A legitimate client retransmits;
+			// replying with an error would just add another reflection vector.
+		}
 	}
 }
 
@@ -189,7 +208,13 @@ func serveRead(sess *net.UDPConn, client *net.UDPAddr, name string) {
 			sendError(sess, client, errNotDefined, err.Error())
 			return
 		}
-		if !sendAndWaitACK(sess, client, buildData(block, buf[:n]), block) {
+		// The first block gets a reduced retry budget to avoid amplifying
+		// traffic toward spoofed sources; later blocks use the full budget.
+		retries := maxRetry
+		if block == 1 {
+			retries = firstBlockRetries
+		}
+		if !sendAndWaitACK(sess, client, buildData(block, buf[:n]), block, retries) {
 			return
 		}
 		// Any read shorter than a full block ends the transfer
@@ -303,10 +328,10 @@ func sendError(sess *net.UDPConn, to *net.UDPAddr, code uint16, msg string) {
 }
 
 // sendAndWaitACK sends a packet and waits for the matching ACK, retransmitting
-// on timeout up to maxRetry times. Packets from a wrong TID are rejected
-func sendAndWaitACK(sess *net.UDPConn, client *net.UDPAddr, data []byte, block uint16) bool {
+// on timeout up to retries times. Packets from a wrong TID are rejected
+func sendAndWaitACK(sess *net.UDPConn, client *net.UDPAddr, data []byte, block uint16, retries int) bool {
 	ackBuf := make([]byte, 4)
-	for try := 0; try < maxRetry; try++ {
+	for try := 0; try < retries; try++ {
 		if _, err := sess.WriteToUDP(data, client); err != nil {
 			log.Println("send:", err)
 			return false
