@@ -6,3 +6,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # One combined PR for all action bumps, so paired actions (e.g. codeql-action
+    # init + analyze) move together instead of in mismatched separate PRs.
+    groups:
+      actions:
+        patterns: ['*']
