@@ -1,3 +1,6 @@
+// Command gl-tftpd is a small, dependency-free TFTP server (RFC 1350, octet
+// mode) that serves a directory over UDP with sandboxed, optionally writable
+// file access.
 package main
 
 import (
@@ -80,7 +83,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer rootFS.Close()
+	defer func() { _ = rootFS.Close() }()
 
 	// Resolve the UDP address and start listening for incoming TFTP requests
 	udpAddr, err := net.ResolveUDPAddr("udp", *addr)
@@ -91,7 +94,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	log.Printf("TFTP serving %s on %s (writable=%v)", rootDir, *addr, allowWrite)
 
@@ -135,7 +138,7 @@ func handle(client *net.UDPAddr, pkt []byte) {
 		log.Println("session socket:", err)
 		return
 	}
-	defer sess.Close()
+	defer func() { _ = sess.Close() }()
 
 	filename, mode, err := parseRequest(pkt[2:])
 	if err != nil {
@@ -198,7 +201,7 @@ func serveRead(sess *net.UDPConn, client *net.UDPAddr, name string) {
 		}
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	buf := make([]byte, blockSize)
 	var block uint16 = 1

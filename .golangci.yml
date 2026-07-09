@@ -1,0 +1,7 @@
+version: "2"
+
+linters:
+  # The v2 default set (errcheck, govet, ineffassign, staticcheck, unused) plus:
+  enable:
+    - gosec    # security checks (replaces the standalone gosec step)
+    - misspell # typos in comments/strings

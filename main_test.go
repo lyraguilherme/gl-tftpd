@@ -68,10 +68,10 @@ func TestRootSymlinkEscape(t *testing.T) {
 	base := t.TempDir()
 	root := filepath.Join(base, "root")
 	secret := filepath.Join(base, "secret.txt")
-	if err := os.MkdirAll(root, 0755); err != nil {
+	if err := os.MkdirAll(root, 0750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(secret, []byte("top secret"), 0644); err != nil {
+	if err := os.WriteFile(secret, []byte("top secret"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	// A symlink inside root pointing at the out-of-tree secret.
@@ -83,14 +83,14 @@ func TestRootSymlinkEscape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	if f, err := r.Open("link"); err == nil {
-		f.Close()
+		_ = f.Close()
 		t.Fatal("symlink escape was NOT blocked: opened out-of-root target")
 	}
 	if f, err := r.Open(relName("../secret.txt")); err == nil {
-		f.Close()
+		_ = f.Close()
 		t.Fatal("traversal escape was NOT blocked")
 	}
 }
