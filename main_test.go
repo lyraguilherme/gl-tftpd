@@ -114,3 +114,45 @@ func TestBuildACK(t *testing.T) {
 		t.Fatalf("got % x, want ACK block 9", p)
 	}
 }
+
+// FuzzParseRequest throws arbitrary bytes at the RRQ/WRQ parser; it must never
+// panic, and a successful parse must honor the documented invariants.
+func FuzzParseRequest(f *testing.F) {
+	f.Add([]byte("file.txt\x00octet\x00"))
+	f.Add([]byte("f\x00NETASCII\x00blksize\x00512\x00"))
+	f.Add([]byte("\x00octet\x00"))
+	f.Add([]byte("nonull"))
+	f.Add([]byte{})
+	f.Fuzz(func(t *testing.T, b []byte) {
+		name, mode, err := parseRequest(b)
+		if err != nil {
+			return
+		}
+		if name == "" {
+			t.Errorf("parseRequest(%q) returned empty filename with no error", b)
+		}
+		if mode != strings.ToLower(mode) {
+			t.Errorf("parseRequest(%q) mode %q is not lowercased", b, mode)
+		}
+	})
+}
+
+// FuzzRelName asserts the traversal guard's core invariant for any input: the
+// result is never absolute and never escapes upward with a "..".
+func FuzzRelName(f *testing.F) {
+	f.Add("file.txt")
+	f.Add("../../etc/passwd")
+	f.Add("/abs/path")
+	f.Add("a/../../b")
+	f.Add("")
+	sep := string(os.PathSeparator)
+	f.Fuzz(func(t *testing.T, name string) {
+		got := relName(name)
+		if strings.HasPrefix(got, sep) {
+			t.Errorf("relName(%q)=%q is absolute", name, got)
+		}
+		if got == ".." || strings.HasPrefix(got, ".."+sep) {
+			t.Errorf("relName(%q)=%q escapes upward", name, got)
+		}
+	})
+}

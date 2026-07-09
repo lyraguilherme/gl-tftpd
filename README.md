@@ -1,6 +1,10 @@
 # GL-TFTPD
 
 [![CI](https://github.com/lyraguilherme/gl-tftpd/actions/workflows/ci.yml/badge.svg)](https://github.com/lyraguilherme/gl-tftpd/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/lyraguilherme/gl-tftpd/actions/workflows/codeql.yml/badge.svg)](https://github.com/lyraguilherme/gl-tftpd/actions/workflows/codeql.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/lyraguilherme/gl-tftpd)](https://goreportcard.com/report/github.com/lyraguilherme/gl-tftpd)
+[![Go Reference](https://pkg.go.dev/badge/github.com/lyraguilherme/gl-tftpd.svg)](https://pkg.go.dev/github.com/lyraguilherme/gl-tftpd)
+[![License: MIT](https://img.shields.io/github/license/lyraguilherme/gl-tftpd)](LICENSE)
 
 A small, dependency-free [TFTP](https://datatracker.ietf.org/doc/html/rfc1350)
 server written in Go. Serves files from a directory over UDP, with optional
