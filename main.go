@@ -8,14 +8,19 @@ import (
 	"encoding/binary"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 )
+
+// version is set at release build time via -ldflags "-X main.version=vX.Y.Z".
+var version string
 
 // TFTP opcodes (RFC 1350)
 const (
@@ -67,7 +72,13 @@ func main() {
 	flag.BoolVar(&allowWrite, "writable", false, "allow clients to upload files (WRQ)")
 	flag.Int64Var(&maxWriteBytes, "max-write-bytes", 1<<30, "maximum bytes accepted per upload (0 = unlimited)")
 	maxSessions := flag.Int("max-sessions", 256, "maximum concurrent transfers (excess requests are dropped)")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("gl-tftpd", resolveVersion())
+		return
+	}
 
 	// Ensure the root directory is an absolute path
 	abs, err := filepath.Abs(rootDir)
@@ -96,7 +107,7 @@ func main() {
 	}
 	defer func() { _ = conn.Close() }()
 
-	log.Printf("TFTP serving %s on %s (writable=%v)", rootDir, *addr, allowWrite)
+	log.Printf("gl-tftpd %s serving %s on %s (writable=%v)", resolveVersion(), rootDir, *addr, allowWrite)
 
 	// Cap concurrent transfers so a packet flood can't exhaust goroutines or file
 	// descriptors — each session opens its own UDP socket.
@@ -123,6 +134,18 @@ func main() {
 			// replying with an error would just add another reflection vector.
 		}
 	}
+}
+
+// resolveVersion returns the release version injected at build time, falling
+// back to the module version (for `go install`) and finally "dev".
+func resolveVersion() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
+		return info.Main.Version
+	}
+	return "dev"
 }
 
 // handle processes a single TFTP request, dispatching to the read or write path

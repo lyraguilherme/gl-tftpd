@@ -156,3 +156,12 @@ func FuzzRelName(f *testing.F) {
 		}
 	})
 }
+
+func TestResolveVersion(t *testing.T) {
+	orig := version
+	defer func() { version = orig }()
+	version = "v9.9.9"
+	if got := resolveVersion(); got != "v9.9.9" {
+		t.Errorf("resolveVersion() = %q, want v9.9.9", got)
+	}
+}
