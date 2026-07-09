@@ -242,9 +242,9 @@ func serveWrite(sess *net.UDPConn, client *net.UDPAddr, name string) {
 	}
 	committed := false
 	defer func() {
-		f.Close()
+		_ = f.Close()
 		if !committed {
-			rootFS.Remove(name)
+			_ = rootFS.Remove(name)
 		}
 	}()
 
@@ -273,7 +273,7 @@ func serveWrite(sess *net.UDPConn, client *net.UDPAddr, name string) {
 		}
 		if got := binary.BigEndian.Uint16(pkt[2:4]); got != expected {
 			// Duplicate or out-of-order: re-ACK the last good block.
-			sess.WriteToUDP(lastAck, client)
+			_, _ = sess.WriteToUDP(lastAck, client)
 			continue
 		}
 
@@ -320,11 +320,12 @@ func buildACK(block uint16) []byte {
 // sendError sends an ERROR packet with the given code and message
 func sendError(sess *net.UDPConn, to *net.UDPAddr, code uint16, msg string) {
 	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, uint16(opERROR))
-	binary.Write(&buf, binary.BigEndian, code)
+	// Writes to a bytes.Buffer never fail; the UDP send is best-effort.
+	_ = binary.Write(&buf, binary.BigEndian, uint16(opERROR))
+	_ = binary.Write(&buf, binary.BigEndian, code)
 	buf.WriteString(msg)
 	buf.WriteByte(0)
-	sess.WriteToUDP(buf.Bytes(), to)
+	_, _ = sess.WriteToUDP(buf.Bytes(), to)
 }
 
 // sendAndWaitACK sends a packet and waits for the matching ACK, retransmitting
@@ -336,7 +337,7 @@ func sendAndWaitACK(sess *net.UDPConn, client *net.UDPAddr, data []byte, block u
 			log.Println("send:", err)
 			return false
 		}
-		sess.SetReadDeadline(time.Now().Add(timeout))
+		_ = sess.SetReadDeadline(time.Now().Add(timeout))
 		for {
 			n, from, err := sess.ReadFromUDP(ackBuf)
 			if err != nil {
@@ -366,11 +367,11 @@ func sendAndWaitACK(sess *net.UDPConn, client *net.UDPAddr, data []byte, block u
 // wrong TID are rejected without consuming a retry
 func readFromPeer(sess *net.UDPConn, client *net.UDPAddr, buf, lastAck []byte) (int, error) {
 	for try := 0; try < maxRetry; try++ {
-		sess.SetReadDeadline(time.Now().Add(timeout))
+		_ = sess.SetReadDeadline(time.Now().Add(timeout))
 		n, from, err := sess.ReadFromUDP(buf)
 		if err != nil {
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
-				sess.WriteToUDP(lastAck, client)
+				_, _ = sess.WriteToUDP(lastAck, client)
 				continue
 			}
 			return 0, err

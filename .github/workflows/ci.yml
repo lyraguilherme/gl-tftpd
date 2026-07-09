@@ -21,8 +21,26 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Security scan (gosec)
+        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.27.1 -quiet ./...
+
       - name: Test
         run: go test -race ./...
 
       - name: Build
         run: go build ./...
+
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [FuzzParseRequest, FuzzRelName]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Fuzz ${{ matrix.target }}
+        run: go test -run='^$' -fuzz='^${{ matrix.target }}$' -fuzztime=60s .
