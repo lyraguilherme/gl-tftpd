@@ -85,6 +85,7 @@ tftp 127.0.0.1 6969 -c put local.bin uploaded.bin   # requires -writable
 | `-writable` | `false` | Allow clients to upload files (WRQ). |
 | `-max-write-bytes` | `1073741824` | Max bytes accepted per upload (0 = unlimited). |
 | `-max-sessions` | `256` | Max concurrent transfers; excess requests are dropped. |
+| `-version` | | Print the version and exit. |
 
 ## Security notes
 
